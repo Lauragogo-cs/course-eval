@@ -1,0 +1,43 @@
+name: Update GT Scheduler Section Data
+
+on:
+  schedule:
+    # 06:00 UTC on the 1st of Jan/May/Aug — once per semester (Spring/Summer/Fall
+    # start). Section/CRN/instructor data barely changes within a semester, so a
+    # daily cron would just be needless load for no real freshness gain.
+    - cron: '0 6 1 1,5,8 *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-gt-scheduler
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run scraper
+        run: python scripts/scrape_gt_scheduler.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add gt_scheduler_sections.csv
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: semester GT Scheduler section data update [skip ci]"
+            git push
+          fi
